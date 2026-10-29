@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import SuperAdminHeader from "@/features/super-admin/components/SuperAdminHeader";
 import VisitorSalesCard from "@/features/super-admin/sub-features/dashboard/components/VisitorSalesCard";
 import FarmlandStatsCard from "@/features/super-admin/sub-features/dashboard/components/FarmlandStatsCard";
-import SuperAdminFarmlandCard from "@/features/super-admin/sub-features/dashboard/components/SuperAdminFarmlandCard";
 import { mockDashboardData } from "@/features/super-admin/data/mockDashboardData";
 import { useGetAllFarmlandsQuery } from "@/features/super-admin/api/farmland.api";
 import { SIMPLE_MODE } from "@/core/config/featureFlags";
@@ -14,23 +13,52 @@ import {
   X as XIcon,
   Loader2,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { S3Image } from "@/components/common/S3Image";
+import { cn } from "@/lib/utils";
 
 const UploadSuperAdmin: React.FC = () => {
   const navigate = useNavigate();
   const data = mockDashboardData;
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [page, setPage] = useState(1);
-  const limit = 8;
+  const limit = 10;
 
   const { data: farmlandsData, isLoading, error } = useGetAllFarmlandsQuery({
     country_id: 1,
-    offset: (page - 1) * limit,
-    limit: limit,
+    offset: 0,
+    limit: 200,
   });
 
-  const cardsData = farmlandsData?.data?.filter((f: any) => f.is_glc_exclusive === 1) || [];
-  const totalCount = farmlandsData?.totalCount || 0;
-  const totalPages = Math.ceil(totalCount / limit) || 1;
+  const sourceFarmlands = (farmlandsData?.data || []).filter(
+    (f: any) => f.is_glc_exclusive === 1
+  );
+  const listToDisplay = sourceFarmlands.length > 0 ? sourceFarmlands : (farmlandsData?.data || []);
+
+  const filteredFarmlands = listToDisplay.filter((f: any) => {
+    if (selectedStatus !== "All") {
+      const statusLower = (f.status || "").toLowerCase();
+      if (!statusLower.includes(selectedStatus.toLowerCase())) return false;
+    }
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      const farmCode = (f.farm_code || "").toLowerCase();
+      const village = (f.village_name || "").toLowerCase();
+      const agentFirst = (f.agent?.first_name || "").toLowerCase();
+      const agentLast = (f.agent?.last_name || "").toLowerCase();
+      const agentFull = `${agentFirst} ${agentLast}`.trim();
+      if (!farmCode.includes(term) && !village.includes(term) && !agentFull.includes(term)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const totalCount = filteredFarmlands.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const paginatedFarmlands = filteredFarmlands.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="box-border flex min-h-full flex-col gap-[clamp(12px,0.5vw,16px)] p-[clamp(6px,0.83vw,12px)] py-[clamp(16px,1.5vw,32px)]">
@@ -90,76 +118,244 @@ const UploadSuperAdmin: React.FC = () => {
 
         {/* ── Search & Filters (hidden in SIMPLE_MODE) ── */}
         {!SIMPLE_MODE && (
-          <div className="flex flex-row flex-wrap gap-[clamp(0.72rem,1.5vw,1.25rem)] items-center justify-between w-full">
-            <div className="relative w-[clamp(8.64rem,18vw,22.0rem)] max-w-full">
-              <input
-                type="text"
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 w-full">
+            <div className="w-full sm:w-[260px]">
+              <Input
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Search"
-                className="w-full h-[clamp(1.2rem,2.5vw,2.6rem)] pl-[clamp(2rem,2.5rem,2.75rem)] pr-[1rem] bg-white border border-[#EBEBEB] rounded-[clamp(2rem,4rem,4.04rem)] font-['Outfit'] font-normal text-[clamp(0.43rem,0.9vw,1.25rem)] text-[#767676] placeholder:text-[#767676] shadow-[0px_2.3rem_0.95rem_rgba(0,0,0,0.01)] focus:outline-none focus:border-gray-400"
+                icon={<SearchIcon size={16} className="text-gray-400" />}
+                className="rounded-full bg-white border-gray-200 font-inter text-sm"
+                wrapperClassName="h-10"
               />
-              <SearchIcon size={16} className="absolute left-[1.125rem] top-1/2 -translate-y-1/2 text-[#767676]" />
             </div>
 
-            <div className="flex items-center justify-end flex-wrap gap-[clamp(0.48rem,1vw,0.75rem)]">
-              {["Area", "Region", "State", "Status"].map((f) => (
-                <div key={f} className="relative shrink-0">
-                  <select className="appearance-none h-[clamp(1.1rem,2.3vw,2.4rem)] pl-[clamp(1rem,1.5rem,1.75rem)] pr-[clamp(2rem,2.5rem,2.75rem)] bg-white border border-[#EBEBEB] rounded-[clamp(2rem,4rem,4.04rem)] font-['Plus_Jakarta_Sans'] font-normal text-[clamp(0.43rem,0.9vw,1.25rem)] text-[#5A5C5E] cursor-pointer focus:outline-none hover:bg-gray-50">
-                    <option value="">{f}</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-[1rem] top-1/2 -translate-y-1/2 text-[#5A5C5E] pointer-events-none" />
-                </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedStatus((prev) =>
+                      prev === "All" ? "Approved" : prev === "Approved" ? "Reverted" : "All"
+                    )
+                  }
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer shadow-xs font-inter"
+                >
+                  <span>Status: {selectedStatus}</span>
+                  <ChevronDown size={14} className="text-gray-400" />
+                </button>
+              </div>
+
+              {["Area", "Region", "State"].map((filter) => (
+                <button
+                  key={filter}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer shadow-xs font-inter"
+                >
+                  {filter}
+                  <ChevronDown size={14} className="text-gray-400" />
+                </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Farmland Cards Grid ── */}
+        {/* ── Farmlands Table ── */}
         <div className="w-full min-h-[400px]">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center w-full min-h-[400px] text-[#2D3032]">
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
-              <p className="font-medium">Loading farmlands...</p>
+              <p className="font-medium text-[var(--text-primary)] font-inter">Loading farmlands...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center w-full min-h-[400px]">
-              <p className="text-red-500 font-medium text-center">Failed to load farmlands. Please try again later.</p>
+              <p className="text-red-500 font-medium text-center font-inter">Failed to load farmlands. Please try again later.</p>
             </div>
-          ) : cardsData.length === 0 ? (
+          ) : filteredFarmlands.length === 0 ? (
             <div className="flex flex-col items-center justify-center w-full min-h-[400px]">
-              <p className="text-[#2D3032] font-medium text-lg">No farmlands available</p>
+              <p className="text-[#2D3032] font-medium text-lg font-inter">
+                {searchTerm.trim() ? "No matching farmlands found" : "No farmlands available"}
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {cardsData.map((farmland, idx) => (
-                <SuperAdminFarmlandCard
-                  key={farmland.id}
-                  data={farmland}
-                  imagePosition={idx % 2 === 0 ? "top" : "bottom"}
-                  onViewDetails={(id) => navigate(`/super-admin/assigned-farmlands/${id}`, { state: { from: 'upload' } })}
-                />
-              ))}
+            <div className="w-full overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-xs">
+              <table className="w-full min-w-[900px] text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-[#FAFAFA]/80">
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Farmland
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Area
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Cost / Acre
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Status
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Assigned Agent
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter text-right">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedFarmlands.map((farmland: any) => {
+                    const costPerAcre =
+                      farmland.valuation && farmland.total_acres && Number(farmland.total_acres) > 0
+                        ? `₹${(Number(farmland.valuation) / Number(farmland.total_acres)).toLocaleString("en-IN", {
+                            maximumFractionDigits: 2,
+                          })}`
+                        : farmland.valuation
+                        ? `₹${Number(farmland.valuation).toLocaleString("en-IN")}`
+                        : "N/A";
+                    const totalValuation =
+                      farmland.valuation && !isNaN(Number(farmland.valuation))
+                        ? `₹${Number(farmland.valuation).toLocaleString("en-IN")}`
+                        : null;
+                    const agentFullName = `${farmland.agent?.first_name || ""} ${
+                      farmland.agent?.last_name || ""
+                    }`.trim();
+
+                    return (
+                      <tr
+                        key={farmland.id}
+                        className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/70 transition-colors"
+                      >
+                        {/* Farmland Info: Cover Thumbnail + Farm Code + GLC Exclusive + Village */}
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                              <S3Image
+                                src={farmland.cover_image_url}
+                                fallbackType="cover"
+                                alt={farmland.farm_code}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-[var(--text-primary)] font-['Plus_Jakarta_Sans']">
+                                  {farmland.farm_code}
+                                </span>
+                                {farmland.is_glc_exclusive === 1 && (
+                                  <span className="px-2 py-0.5 bg-[#E6EEAD] text-[#2A3125] text-[10px] font-bold rounded-full border border-[#D5DF96]">
+                                    GLC Exclusive
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[12px] text-[var(--text-muted)] font-inter">
+                                {farmland.village_name || "Assigned Farmland"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Area */}
+                        <td className="py-4 px-6">
+                          <div className="font-semibold text-sm text-[var(--text-primary)] font-inter">
+                            {farmland.total_acres ? `${Number(farmland.total_acres).toFixed(2)} acres` : "N/A"}
+                          </div>
+                        </td>
+
+                        {/* Cost per Acre + Total Valuation */}
+                        <td className="py-4 px-6">
+                          <div className="font-semibold text-sm text-[var(--text-primary)] font-inter">
+                            {costPerAcre}
+                          </div>
+                          {totalValuation && (
+                            <div className="text-[11px] text-[var(--text-muted)] mt-0.5 font-inter">
+                              Total: {totalValuation}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="py-4 px-6">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase font-inter",
+                              farmland.status?.toLowerCase().includes("approv") || farmland.status_id === 1
+                                ? "bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]"
+                                : "bg-[#F2F4F7] text-[var(--text-primary)] border border-gray-200"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                farmland.status?.toLowerCase().includes("approv") || farmland.status_id === 1
+                                  ? "bg-[#16A34A]"
+                                  : "bg-gray-400"
+                              )}
+                            />
+                            {farmland.status || "Approved"}
+                          </span>
+                        </td>
+
+                        {/* Assigned Agent */}
+                        <td className="py-4 px-6">
+                          {agentFullName ? (
+                            <div className="flex items-center gap-2.5">
+                              <S3Image
+                                src={farmland.agent?.img}
+                                fallbackType="avatar"
+                                alt={agentFullName}
+                                className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                              />
+                              <span className="font-medium text-sm text-[var(--text-primary)] font-inter">
+                                {agentFullName}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic font-inter">Unassigned</span>
+                          )}
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() =>
+                              navigate(`/super-admin/assigned-farmlands/${farmland.id}`, {
+                                state: { from: "upload" },
+                              })
+                            }
+                            className="px-4 py-1.5 rounded-full border border-gray-300 bg-white text-[var(--text-primary)] hover:bg-[#2D3032] hover:text-white hover:border-[#2D3032] transition-colors font-inter font-medium text-xs whitespace-nowrap cursor-pointer shadow-xs"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
 
         {/* Pagination */}
-        {cardsData.length > 0 && (
+        {filteredFarmlands.length > 0 && (
           <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 font-inter">
               Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, totalCount)} of {totalCount} entries
             </span>
             <div className="flex gap-2">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-primary)]"
+                className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-primary)] font-inter transition-colors"
               >
                 Previous
               </button>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-primary)]"
+                className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-primary)] font-inter transition-colors"
               >
                 Next
               </button>

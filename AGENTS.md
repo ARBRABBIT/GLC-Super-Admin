@@ -8,7 +8,17 @@
 
 ---
 
-## 2. Core Design Tokens & Conventions (from Design.md)
+## 2. Mandatory Rule: UI-Only Changes (Never Modify Integrations Without Permission)
+
+> **CRITICAL RULE:**
+> **Do NOT alter, rewrite, or touch any backend integrations or underlying functionality — change the UI only.**
+> - Keep all API bindings, RTK Query endpoints, query hooks, data payload structures, authentication flows, and state logic intact.
+> - Focus strictly on UI, layout, typography, styling, component presentation, and responsiveness.
+> - **If you ever need to change, add, or modify ANY integration, API call, or backend functionality, YOU MUST ASK AND INFORM THE USER FOR APPROVAL BEFORE MAKING ANY CHANGES.**
+
+---
+
+## 3. Core Design Tokens & Conventions (from Design.md)
 
 ### Typography
 - **Headings & Key Metrics:** `font-['Plus_Jakarta_Sans']` (`font-bold` or `font-extrabold`).
@@ -31,7 +41,7 @@
 
 ---
 
-## 3. UI Component Patterns
+## 4. UI Component Patterns
 
 ### Tables
 - Wrap tables in `w-full overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-xs`.
@@ -49,9 +59,10 @@
 
 ---
 
-## 4. Code & Architecture Rules
-1. **TypeScript Integrity:** All code must pass `npm run build` (`tsc -b && vite build`) with 0 errors.
-2. **Preserve Existing Functionality:** Do not break existing API bindings, RTK Query hooks, routing structures, or query parameters.
-3. **Responsive by Default:** Ensure layouts adapt smoothly to desktop and smaller viewports.
-4. **Follow Section 19 of Design.md:** AI Development Rules are mandatory for all new screens.
+## 5. Code & Architecture Rules
+1. **Strictly UI-Only by Default:** Do not touch or modify functionality, API bindings, RTK Query hooks, state logic, or routing integrations without prior user confirmation and approval.
+2. **TypeScript Integrity:** All code must pass `npm run build` (`tsc -b && vite build`) with 0 errors.
+3. **Preserve Existing Functionality:** Do not break existing API bindings, RTK Query hooks, routing structures, or query parameters.
+4. **Responsive by Default:** Ensure layouts adapt smoothly to desktop and smaller viewports.
+5. **Follow Section 19 of Design.md:** AI Development Rules are mandatory for all new screens.
 
