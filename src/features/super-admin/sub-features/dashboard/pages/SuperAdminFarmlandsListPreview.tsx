@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import SuperAdminFarmlandCard from "@/features/super-admin/sub-features/dashboard/components/SuperAdminFarmlandCard";
+import { cn } from "@/lib/utils";
+import { S3Image } from "@/components/common/S3Image";
 import { useGetAllFarmlandsQuery } from "@/features/super-admin/api/farmland.api";
 import { useGetAllMasterDataQuery } from "@/features/super-admin/api/masterData.api";
 
@@ -69,7 +70,7 @@ const CustomSelect: React.FC<{
 const SuperAdminFarmlandsListPreview: React.FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const limit = 8;
+  const limit = 10;
 
   const [selectedStatus, setSelectedStatus] = useState<{ id: number | null; label: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -183,7 +184,7 @@ const SuperAdminFarmlandsListPreview: React.FC = () => {
           </div>
         </div>
 
-        {/* Cards Grid */}
+        {/* Farmlands Table */}
         <div className="w-full min-h-[400px]">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center w-full h-full min-h-[400px] text-[#2D3032]">
@@ -201,15 +202,154 @@ const SuperAdminFarmlandsListPreview: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {cardsData.map((farmland, idx) => (
-                <SuperAdminFarmlandCard
-                  key={farmland.id}
-                  data={farmland}
-                  imagePosition={idx % 2 === 0 ? "top" : "bottom"}
-                  onViewDetails={(id) => navigate(`/super-admin/assigned-farmlands/${id}`)}
-                />
-              ))}
+            <div className="w-full overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-xs">
+              <table className="w-full min-w-[900px] text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-[#FAFAFA]/80">
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Farmland
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Area
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Cost / Acre
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Status
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter">
+                      Assigned Agent
+                    </th>
+                    <th className="font-semibold text-xs text-[var(--text-muted)] py-4 px-6 uppercase tracking-wider font-inter text-right">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cardsData.map((farmland) => {
+                    const costPerAcre =
+                      farmland.valuation && farmland.total_acres && Number(farmland.total_acres) > 0
+                        ? `₹${(Number(farmland.valuation) / Number(farmland.total_acres)).toLocaleString("en-IN", {
+                            maximumFractionDigits: 2,
+                          })}`
+                        : "N/A";
+                    const totalValuation =
+                      farmland.valuation && !isNaN(Number(farmland.valuation))
+                        ? `₹${Number(farmland.valuation).toLocaleString("en-IN")}`
+                        : null;
+                    const agentFullName = `${farmland.agent?.first_name || ""} ${
+                      farmland.agent?.last_name || ""
+                    }`.trim();
+
+                    return (
+                      <tr
+                        key={farmland.id}
+                        className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/70 transition-colors"
+                      >
+                        {/* Farmland Info: Thumbnail + Code + Badge + Village */}
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                              <S3Image
+                                src={farmland.cover_image_url}
+                                fallbackType="cover"
+                                alt={farmland.farm_code}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-[var(--text-primary)]">
+                                  {farmland.farm_code}
+                                </span>
+                                {farmland.is_glc_exclusive === 1 && (
+                                  <span className="px-2 py-0.5 bg-[#E6EEAD] text-[#2A3125] text-[10px] font-bold rounded-full border border-[#D5DF96]">
+                                    GLC Exclusive
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[12px] text-[var(--text-muted)]">
+                                {farmland.village_name || "Assigned Farmland"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Area */}
+                        <td className="py-4 px-6">
+                          <div className="font-semibold text-sm text-[var(--text-primary)]">
+                            {farmland.total_acres ? `${Number(farmland.total_acres).toFixed(2)} acres` : "N/A"}
+                          </div>
+                        </td>
+
+                        {/* Cost per Acre + Valuation */}
+                        <td className="py-4 px-6">
+                          <div className="font-semibold text-sm text-[var(--text-primary)]">
+                            {costPerAcre}
+                          </div>
+                          {totalValuation && (
+                            <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                              Total: {totalValuation}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-4 px-6">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase",
+                              farmland.status?.toLowerCase().includes("approv") || farmland.status_id === 1
+                                ? "bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]"
+                                : "bg-[#F2F4F7] text-[var(--text-primary)] border border-gray-200"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                farmland.status?.toLowerCase().includes("approv") || farmland.status_id === 1
+                                  ? "bg-[#16A34A]"
+                                  : "bg-gray-400"
+                              )}
+                            />
+                            {farmland.status || "Approved"}
+                          </span>
+                        </td>
+
+                        {/* Agent */}
+                        <td className="py-4 px-6">
+                          {agentFullName ? (
+                            <div className="flex items-center gap-2.5">
+                              <S3Image
+                                src={farmland.agent?.img}
+                                fallbackType="avatar"
+                                alt={agentFullName}
+                                className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                              />
+                              <span className="font-medium text-sm text-[var(--text-primary)]">
+                                {agentFullName}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Unassigned</span>
+                          )}
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => navigate(`/super-admin/assigned-farmlands/${farmland.id}`)}
+                            className="px-4 py-1.5 rounded-full border border-gray-300 bg-white text-[var(--text-primary)] hover:bg-[#2D3032] hover:text-white hover:border-[#2D3032] transition-colors font-inter font-medium text-xs whitespace-nowrap cursor-pointer shadow-xs"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

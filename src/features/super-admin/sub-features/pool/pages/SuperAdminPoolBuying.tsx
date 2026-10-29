@@ -21,18 +21,19 @@ const SuperAdminPoolBuying: React.FC = () => {
   const data = mockDashboardData;
   const previewPools = data.poolBuyingPools?.slice(0, 2) || [];
 
-  const handleLocationContinue = (location: string) => {
+  const handleLocationContinue = (location: string, selectedLand?: any) => {
     setIsLocationModalOpen(false);
     const details =
+      selectedLand ||
       LOCATION_FARMLAND_MAP[location] ||
       LOCATION_FARMLAND_MAP["Hyderabad, Telangana"];
     navigate("/super-admin/pool-buying/create", {
       state: {
-        location,
-        farmlandId: details.farmlandId,
-        assignedCode: details.assignedCode,
-        wholeAreaAcres: details.wholeAreaAcres,
-        wholeAreaSqFt: details.wholeAreaSqFt,
+        location: selectedLand?.location || location,
+        farmlandId: details.farmlandId || details.farm_code,
+        assignedCode: details.assignedCode || details.farm_code,
+        wholeAreaAcres: details.wholeAreaAcres || details.total_acres || "25.00",
+        wholeAreaSqFt: details.wholeAreaSqFt || "10,89,000",
       },
     });
   };
